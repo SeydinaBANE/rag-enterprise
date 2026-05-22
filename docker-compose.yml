@@ -38,14 +38,12 @@ services:
       DATABASE_URL: postgresql+asyncpg://rag:rag@postgres:5432/ragdb
       REDIS_URL: redis://redis:6379/0
     volumes:
-      - ./backend:/app
       - uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   worker:
     build: ./backend
@@ -55,7 +53,6 @@ services:
       SYNC_DATABASE_URL: postgresql://rag:rag@postgres:5432/ragdb
       REDIS_URL: redis://redis:6379/0
     volumes:
-      - ./backend:/app
       - uploads:/app/uploads
     depends_on:
       postgres:
@@ -70,13 +67,8 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     depends_on:
       - backend
-    command: npm run dev
 
 volumes:
   postgres_data:
