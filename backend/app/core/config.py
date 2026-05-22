@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 64
 
+    # RAG features
+    hyde_enabled: bool = False
+    cache_ttl_seconds: int = 3600
+    rate_limit_query_per_minute: int = 20
+
     # Connectors
     confluence_url: str = ""
     confluence_username: str = ""

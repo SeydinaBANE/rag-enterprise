@@ -3,14 +3,17 @@ from __future__ import annotations
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from redis.asyncio import Redis
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser, get_current_user
 from app.core.database import get_db
 from app.core.metrics import ACTIVE_STREAMS, FEEDBACK_TOTAL, QUERY_LATENCY, QUERY_TOTAL, TOKENS_USED
+from app.core.rate_limit import check_query_rate_limit
+from app.core.redis import get_redis
 from app.models.db import QueryLog
 from app.models.schemas import FeedbackRequest, QueryRequest
 from app.rag.pipeline import query, query_stream
@@ -20,9 +23,12 @@ router = APIRouter()
 
 @router.post("/query")
 async def handle_query(
+    request: Request,
     req: QueryRequest,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
+    redis: Redis = Depends(get_redis),
+    _rl: None = Depends(check_query_rate_limit),
 ):
     if not user.can_access(req.collection):
         raise HTTPException(status_code=403, detail=f"Accès à la collection '{req.collection}' non autorisé")
@@ -35,13 +41,13 @@ async def handle_query(
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
-    else:
-        t0 = time.perf_counter()
-        result = await query(db, req.question, req.collection, user.id)
-        QUERY_LATENCY.labels(collection=req.collection).observe(time.perf_counter() - t0)
-        if hasattr(result, "tokens_used") and result.tokens_used:
-            TOKENS_USED.labels(collection=req.collection).inc(result.tokens_used)
-        return result
+
+    t0 = time.perf_counter()
+    result = await query(db, req.question, req.collection, user.id, redis)
+    QUERY_LATENCY.labels(collection=req.collection).observe(time.perf_counter() - t0)
+    if hasattr(result, "tokens_used") and result.tokens_used:
+        TOKENS_USED.labels(collection=req.collection).inc(result.tokens_used)
+    return result
 
 
 async def _sse_stream(db: AsyncSession, req: QueryRequest, user: CurrentUser):
