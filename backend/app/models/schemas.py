@@ -31,6 +31,7 @@ class StreamChunk(BaseModel):
     type: str  # "token" | "sources" | "done" | "error"
     content: str | None = None
     sources: list[SourceDoc] | None = None
+    query_log_id: str | None = None
 
 
 class IngestResponse(BaseModel):

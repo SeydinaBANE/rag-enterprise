@@ -1,17 +1,29 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Loader2 } from "lucide-react";
-import { MessageBubble, type Message } from "./MessageBubble";
-import { streamQuery, ingestPDF, type SourceDoc } from "@/lib/api";
+import { Send, Loader2 } from "lucide-react";
+import { MessageBubble } from "./MessageBubble";
+import { EmptyState } from "./EmptyState";
+import { streamQuery, submitFeedback } from "@/lib/api";
+import { useStore } from "@/store/useStore";
 import { cn } from "@/lib/utils";
 
+const COLLECTION_LABELS: Record<string, string> = {
+  general: "Général",
+  rh: "RH",
+  tech: "Tech",
+  finance: "Finance",
+};
+
 export function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const messages = useStore((s) => s.messages);
+  const addMessage = useStore((s) => s.addMessage);
+  const updateMessage = useStore((s) => s.updateMessage);
+  const appendToken = useStore((s) => s.appendToken);
+  const collection = useStore((s) => s.collection);
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [collection, setCollection] = useState("general");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -25,138 +37,80 @@ export function Chat() {
     setInput("");
     setLoading(true);
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: question };
     const assistantId = crypto.randomUUID();
-    const assistantMsg: Message = {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      isStreaming: true,
-    };
-
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    addMessage({ id: crypto.randomUUID(), role: "user", content: question });
+    addMessage({ id: assistantId, role: "assistant", content: "", isStreaming: true });
 
     try {
       for await (const chunk of streamQuery(question, collection)) {
         if (chunk.type === "token" && chunk.content) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: m.content + chunk.content } : m
-            )
-          );
+          appendToken(assistantId, chunk.content);
         } else if (chunk.type === "sources" && chunk.sources) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, sources: chunk.sources } : m
-            )
-          );
+          updateMessage(assistantId, { sources: chunk.sources });
         } else if (chunk.type === "done") {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, isStreaming: false } : m))
-          );
+          updateMessage(assistantId, {
+            isStreaming: false,
+            queryLogId: chunk.query_log_id,
+          });
         } else if (chunk.type === "error") {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: chunk.content ?? "Une erreur est survenue.", isStreaming: false }
-                : m
-            )
-          );
+          updateMessage(assistantId, {
+            content: chunk.content ?? "Une erreur est survenue.",
+            isStreaming: false,
+          });
         }
       }
-    } catch (err) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? { ...m, content: "Erreur de connexion à l'API.", isStreaming: false }
-            : m
-        )
-      );
+    } catch {
+      updateMessage(assistantId, {
+        content: "Erreur de connexion à l'API.",
+        isStreaming: false,
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFeedback(messageId: string, feedback: 1 | -1) {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg?.queryLogId || (msg.feedback !== undefined && msg.feedback !== null)) return;
+    updateMessage(messageId, { feedback });
     try {
-      const result = await ingestPDF(file, collection);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `✓ ${result.message}`,
-        },
-      ]);
+      await submitFeedback(msg.queryLogId, feedback);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "assistant", content: "Erreur lors de l'upload du PDF." },
-      ]);
+      // fire-and-forget — feedback failure is non-critical
     }
-    e.target.value = "";
   }
 
   return (
     <div className="flex flex-col h-screen bg-zinc-900 text-zinc-100">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+      <header className="flex items-center px-6 py-4 border-b border-zinc-800">
         <div>
           <h1 className="text-lg font-semibold">Base de connaissances</h1>
-          <p className="text-xs text-zinc-500">Posez une question sur vos documents internes</p>
+          <p className="text-xs text-zinc-500">
+            Collection :{" "}
+            <span className="text-zinc-300">{COLLECTION_LABELS[collection] ?? collection}</span>
+          </p>
         </div>
-        <select
-          value={collection}
-          onChange={(e) => setCollection(e.target.value)}
-          className="text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="general">Général</option>
-          <option value="rh">RH</option>
-          <option value="tech">Tech</option>
-          <option value="finance">Finance</option>
-        </select>
       </header>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-            <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-2xl">
-              🔍
-            </div>
-            <p className="text-zinc-400 text-sm max-w-xs">
-              Posez n&apos;importe quelle question sur vos documents internes. Je citerai mes sources.
-            </p>
-          </div>
+        {messages.length === 0 ? (
+          <EmptyState onSuggest={setInput} />
+        ) : (
+          messages.map((msg) => (
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              onFeedback={msg.role === "assistant" ? handleFeedback : undefined}
+            />
+          ))
         )}
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <form
         onSubmit={handleSubmit}
         className="flex items-end gap-2 px-4 py-4 border-t border-zinc-800"
       >
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf"
-          className="hidden"
-          onChange={handleFileUpload}
-        />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="p-2.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors"
-          title="Uploader un PDF"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
