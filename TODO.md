@@ -67,7 +67,7 @@
 
 ### Sécurité
 - [x] Rate limiting par utilisateur — `core/rate_limit.py` (Redis INCR/EXPIRE, configurable via `RATE_LIMIT_QUERY_PER_MINUTE`)
-- [ ] PII detection Microsoft Presidio avant embedding
+- [x] PII detection Microsoft Presidio avant embedding — `ingestion/pii_detector.py` (`PII_DETECTION_ENABLED`, `PII_ACTION`, `PII_LANGUAGE`)
 - [ ] Guardrails anti-injection prompt (LLM Guard)
 
 ### Observabilité

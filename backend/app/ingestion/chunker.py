@@ -37,6 +37,16 @@ def chunk_text(text: str, metadata: dict | None = None) -> list[Chunk]:
             chunk_meta = {**metadata, "section": section_title, "chunk_index": i}
             chunks.append(Chunk(content=content, metadata=chunk_meta))
 
+    if settings.pii_detection_enabled:
+        from app.ingestion.pii_detector import process_chunk
+        chunks = [
+            Chunk(
+                content=process_chunk(c.content, settings.pii_language, settings.pii_action),
+                metadata=c.metadata,
+            )
+            for c in chunks
+        ]
+
     return chunks
 
 

@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 3600
     rate_limit_query_per_minute: int = 20
 
+    # PII detection (Microsoft Presidio)
+    pii_detection_enabled: bool = False
+    pii_action: str = "anonymize"  # "anonymize" | "log"
+    pii_language: str = "en"       # "en" | "fr"
+
     # Connectors
     confluence_url: str = ""
     confluence_username: str = ""
