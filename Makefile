@@ -215,6 +215,48 @@ reset-db: ## Recrée la base de données from scratch (DESTRUCTIF)
 	@echo "$(GREEN)✓ Base recréée$(RESET)"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# AUTH
+# ─────────────────────────────────────────────────────────────────────────────
+.PHONY: create-admin
+create-admin: ## Crée un compte admin (usage: make create-admin EMAIL=admin@corp.com PASSWORD=secret COLLECTIONS=general,rh,tech)
+	@[ -n "$(EMAIL)" ] || (echo "Usage: make create-admin EMAIL=admin@example.com PASSWORD=secret" && exit 1)
+	@[ -n "$(PASSWORD)" ] || (echo "PASSWORD manquant" && exit 1)
+	docker compose exec -T postgres psql -U rag -d ragdb -c "\
+		INSERT INTO users (email, hashed_password, role, allowed_collections) \
+		VALUES ('$(EMAIL)', \
+		        '$$(docker compose exec -T backend python -c \"from app.core.security import hash_password; print(hash_password('$(PASSWORD)'))\")', \
+		        'admin', \
+		        '{$(or $(COLLECTIONS),general)}') \
+		ON CONFLICT (email) DO UPDATE SET role='admin'; \
+	"
+
+.PHONY: create-admin-script
+create-admin-script: ## Crée un compte admin via script Python (recommandé)
+	@[ -n "$(EMAIL)" ] || (echo "Usage: make create-admin-script EMAIL=admin@example.com PASSWORD=secret" && exit 1)
+	@[ -n "$(PASSWORD)" ] || (echo "PASSWORD manquant" && exit 1)
+	docker compose exec -T backend python -c "\
+import asyncio; \
+from app.core.database import AsyncSessionLocal; \
+from app.models.db import User; \
+from app.core.security import hash_password, GUEST_COLLECTIONS; \
+from sqlalchemy import select; \
+\
+async def main(): \
+    async with AsyncSessionLocal() as db: \
+        r = await db.execute(select(User).where(User.email == '$(EMAIL)')); \
+        u = r.scalar_one_or_none(); \
+        cols = '$(COLLECTIONS)'.split(',') if '$(COLLECTIONS)' else ['general','rh','tech','finance']; \
+        if u: \
+            u.role = 'admin'; u.allowed_collections = cols; u.hashed_password = hash_password('$(PASSWORD)'); \
+            print('Admin mis à jour:', '$(EMAIL)'); \
+        else: \
+            db.add(User(email='$(EMAIL)', hashed_password=hash_password('$(PASSWORD)'), role='admin', allowed_collections=cols)); \
+            print('Admin créé:', '$(EMAIL)'); \
+        await db.commit(); \
+\
+asyncio.run(main())"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # SECRETS (dev only)
 # ─────────────────────────────────────────────────────────────────────────────
 .PHONY: gen-secret

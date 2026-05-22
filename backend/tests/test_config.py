@@ -57,9 +57,20 @@ def test_source_doc_schema():
 
 
 def test_jwt_roundtrip():
-    token = create_access_token("user-42")
-    user_id = decode_token(token)
-    assert user_id == "user-42"
+    token = create_access_token("user-42", role="user", collections=["general", "rh"])
+    payload = decode_token(token)
+    assert payload is not None
+    assert payload["sub"] == "user-42"
+    assert payload["role"] == "user"
+    assert payload["collections"] == ["general", "rh"]
+    assert payload["type"] == "access"
+
+
+def test_jwt_admin_role():
+    token = create_access_token("admin-1", role="admin", collections=["general", "rh", "tech"])
+    payload = decode_token(token)
+    assert payload is not None
+    assert payload["role"] == "admin"
 
 
 def test_jwt_invalid_token():

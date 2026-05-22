@@ -39,13 +39,15 @@ slack-sdk==3.33.4
 tiktoken==0.8.0
 
 # Config & validation
-pydantic==2.10.3
+pydantic[email]==2.10.3
 pydantic-settings==2.6.1
+email-validator==2.2.0
 python-dotenv==1.0.1
 
 # Auth
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
 
 # Observability
 structlog==24.4.0

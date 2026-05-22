@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, CurrentUser
 from app.models.schemas import QueryRequest, QueryResponse, FeedbackRequest
 from app.rag.pipeline import query_stream, query
 from app.models.db import QueryLog
@@ -18,20 +18,23 @@ router = APIRouter()
 async def handle_query(
     req: QueryRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    if not user.can_access(req.collection):
+        raise HTTPException(status_code=403, detail=f"Accès à la collection '{req.collection}' non autorisé")
+
     if req.stream:
         return StreamingResponse(
-            _sse_stream(db, req, user_id),
+            _sse_stream(db, req, user.id),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
     else:
-        result = await query(db, req.question, req.collection, user_id)
+        result = await query(db, req.question, req.collection, user.id)
         return result
 
 
-async def _sse_stream(db: AsyncSession, req: QueryRequest, user_id: str | None):
+async def _sse_stream(db: AsyncSession, req: QueryRequest, user_id: str):
     async for chunk in query_stream(db, req.question, req.collection, user_id):
         data = chunk.model_dump_json(exclude_none=True)
         yield f"data: {data}\n\n"
@@ -41,7 +44,7 @@ async def _sse_stream(db: AsyncSession, req: QueryRequest, user_id: str | None):
 async def submit_feedback(
     req: FeedbackRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     try:
         log_id = uuid.UUID(req.query_log_id)

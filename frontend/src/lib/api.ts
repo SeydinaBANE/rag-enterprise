@@ -1,5 +1,62 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+export function getToken(): string | null {
+  return typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+}
+
+export function setTokens(access: string, refresh: string): void {
+  localStorage.setItem("access_token", access);
+  localStorage.setItem("refresh_token", refresh);
+}
+
+export function clearTokens(): void {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+}
+
+function authHeaders(): HeadersInit {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export interface UserOut {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  allowed_collections: string[];
+  is_active: boolean;
+}
+
+export async function login(email: string, password: string): Promise<UserOut> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Identifiants invalides");
+  }
+  const { access_token, refresh_token } = await res.json();
+  setTokens(access_token, refresh_token);
+  return fetchMe();
+}
+
+export async function fetchMe(): Promise<UserOut> {
+  const res = await fetch(`${API_URL}/api/auth/me`, {
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+  if (!res.ok) throw new Error("Non authentifié");
+  return res.json();
+}
+
+export async function logout(): Promise<void> {
+  clearTokens();
+}
+
 export interface SourceDoc {
   id: string;
   title: string | null;
@@ -23,7 +80,7 @@ export async function* streamQuery(
 ): AsyncGenerator<StreamChunk> {
   const response = await fetch(`${API_URL}/api/query`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ question, collection, stream: true }),
   });
 
@@ -62,7 +119,7 @@ export async function submitFeedback(
 ): Promise<void> {
   await fetch(`${API_URL}/api/query/feedback`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ query_log_id: queryLogId, feedback }),
   });
 }
@@ -74,6 +131,7 @@ export async function ingestPDF(file: File, collection = "general"): Promise<{ j
 
   const response = await fetch(`${API_URL}/api/ingest/pdf`, {
     method: "POST",
+    headers: { ...authHeaders() },
     body: form,
   });
 
