@@ -5,11 +5,10 @@
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=next.js&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/LLM-OpenRouter-6B4FBB?style=flat-square)
+![CI](https://github.com/SeydinaBANE/rag-enterprise/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 > Système RAG (Retrieval-Augmented Generation) d'entreprise — posez des questions en langage naturel sur vos documents internes (PDF, Confluence, Slack) et obtenez des réponses sourcées en temps réel.
-
-![Demo Screenshot](https://placehold.co/1200x600/1a1a2e/4a9eff?text=RAG+Enterprise+Platform)
 
 ---
 
@@ -18,11 +17,13 @@
 - **Chat en streaming** — réponses streamées token par token via SSE
 - **Upload drag-and-drop** — sidebar dédiée, glisser-déposer un PDF et le voir apparaître en base
 - **Citations de sources** — chaque réponse cite les documents utilisés avec score de pertinence
-- **Feedback 👍/👎** — évaluer chaque réponse, résultat tracé en base pour améliorer le modèle
+- **Feedback 👍/👎** — évaluer chaque réponse, résultat tracé en base
 - **Hybrid Search** — dense (embeddings) + sparse (BM25) fusionnés par Reciprocal Rank Fusion
 - **Reranker** — Cohere Rerank v3.5 pour maximiser la précision (fallback cosinus si absent)
-- **Multi-sources** — PDF, Confluence, Slack export (Google Drive, SharePoint à venir)
-- **Déduplication** — checksum MD5 sur les chunks pour éviter les doublons lors de la réingestion
+- **Auth JWT + RBAC** — inscription/connexion, accès restreint par collection et par rôle
+- **Observabilité** — métriques Prometheus + dashboard Grafana pré-configuré
+- **Multi-sources** — PDF, Confluence, Slack export
+- **Déduplication** — checksum MD5 sur les chunks pour éviter les doublons
 - **Audit log** — toutes les requêtes tracées en base (user, question, sources, latence, tokens)
 - **Collections** — isolation par département (RH, Tech, Finance, Général)
 
@@ -31,30 +32,34 @@
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    INTERFACE WEB                         │
-│   Next.js 15  ·  Tailwind  ·  Zustand  ·  SSE streaming │
-│   Sidebar upload  ·  EmptyState  ·  Feedback 👍/👎       │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────┐
-│                   FASTAPI BACKEND                        │
-│                                                          │
-│  /api/query ──► Hybrid Retrieval (dense + BM25)          │
-│                 ──► RRF Fusion ──► Cohere Rerank         │
-│                     ──► LLM streaming (OpenRouter)       │
-│                                                          │
-│  /api/ingest/pdf        /api/ingest/confluence           │
-│  /api/query/feedback    /api/health                      │
-└──────────┬──────────────────────────┬───────────────────┘
-           │                          │
-┌──────────▼──────────┐  ┌────────────▼────────────────┐
-│  pgvector           │  │  Redis                       │
-│  (PostgreSQL 16)    │  │  Cache + Celery broker        │
-│  HNSW index         │  └─────────────────────────────┘
-│  384-dim vectors    │
+┌──────────────────────────────────────────────────────────────┐
+│                      INTERFACE WEB                            │
+│   Next.js 15 · Tailwind · Zustand · SSE streaming            │
+│   Sidebar upload · EmptyState · Feedback 👍/👎 · LoginModal   │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+┌───────────────────────────▼──────────────────────────────────┐
+│                    FASTAPI BACKEND                             │
+│                                                               │
+│  /api/auth/*   ──► JWT register / login / refresh / me        │
+│  /api/query    ──► RBAC ──► Hybrid Retrieval (dense + BM25)   │
+│                     ──► RRF Fusion ──► Cohere Rerank          │
+│                         ──► LLM streaming (OpenRouter)        │
+│  /api/ingest/* ──► require_admin                              │
+│  /metrics      ──► Prometheus scrape                          │
+└──────────┬────────────────────────────────┬──────────────────┘
+           │                                │
+┌──────────▼──────────┐     ┌───────────────▼────────────────┐
+│  pgvector           │     │  Redis                          │
+│  (PostgreSQL 16)    │     │  Cache + Celery broker           │
+│  HNSW index 384d    │     └────────────────────────────────┘
 │  BM25 FTS index     │
 └─────────────────────┘
+           │
+┌──────────▼──────────┐     ┌────────────────────────────────┐
+│  Prometheus         │────►│  Grafana :3001                  │
+│  :9090              │     │  Dashboard RAG (10 panneaux)    │
+└─────────────────────┘     └────────────────────────────────┘
 ```
 
 ---
@@ -64,6 +69,7 @@
 | Couche | Technologie |
 |--------|-------------|
 | **API** | FastAPI 0.115 + uvicorn (async) |
+| **Auth** | JWT (python-jose) + passlib/bcrypt — access 15min + refresh 7j |
 | **LLM** | OpenRouter (`anthropic/claude-haiku-4.5` par défaut — configurable) |
 | **Embeddings** | fastembed local — `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384d, FR/EN) |
 | **Reranker** | Cohere Rerank v3.5 (optionnel — fallback cosinus) |
@@ -71,8 +77,10 @@
 | **Hybrid Search** | Dense cosinus + BM25 FTS → Reciprocal Rank Fusion |
 | **Cache / Queue** | Redis 7 + Celery |
 | **Frontend** | Next.js 15, React 19, Tailwind CSS, Zustand |
+| **Monitoring** | Prometheus + Grafana 11 (dashboard pré-provisionné) |
 | **Conteneurs** | Docker + Docker Compose |
-| **Qualité** | Ruff, Mypy, Prettier, pre-commit, detect-secrets |
+| **CI/CD** | GitHub Actions — lint (ruff + eslint), tests, build Docker |
+| **Qualité** | Ruff 0.15, Mypy, Prettier, pre-commit, detect-secrets |
 
 ---
 
@@ -81,8 +89,6 @@
 ### Prérequis
 
 - Docker & Docker Compose
-- Python 3.11+ *(pour développement local sans Docker)*
-- Node.js 20+ *(pour développement local sans Docker)*
 - Une clé [OpenRouter](https://openrouter.ai) *(gratuit, modèles au choix)*
 
 ### Installation
@@ -100,89 +106,128 @@ cp .env.example .env
 docker compose up -d
 ```
 
-L'interface est disponible sur **http://localhost:3000** et l'API sur **http://localhost:8000/docs**.
+| Service | URL |
+|---------|-----|
+| Interface web | http://localhost:3000 |
+| API + Swagger | http://localhost:8000/docs |
+| Grafana | http://localhost:3001 (admin / admin) |
+| Prometheus | http://localhost:9090 |
+
+### Créer un compte admin
+
+```bash
+make create-admin-script EMAIL=admin@example.com PASSWORD=secret
+```
 
 ### Développement local (sans Docker)
 
 ```bash
-# Installer les dépendances
-make setup
-
-# Lancer backend + frontend en parallèle
-make dev
+make setup   # Install + .env + pre-commit + DB
+make dev     # Backend :8000 + Frontend :3000 en parallèle
 ```
 
 ---
 
 ## Utilisation
 
-### Importer des documents
-
-**Via l'interface** — glisser-déposer un PDF dans la sidebar gauche, choisir la collection.
-
-**Via la CLI :**
+### Auth
 
 ```bash
-# PDF
+# Inscription
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"secret123"}'
+
+# Connexion → récupérer l'access_token
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"secret123"}'
+```
+
+### Importer des documents *(admin requis)*
+
+```bash
 make ingest-pdf FILE=docs/politique-rh.pdf COLLECTION=rh
 
-# Confluence
-make ingest-confluence SPACE=ENG COLLECTION=tech
-
-# Via API directement
+# Via API avec token admin
 curl -X POST http://localhost:8000/api/ingest/pdf \
+  -H "Authorization: Bearer $TOKEN" \
   -F "file=@mon_doc.pdf" \
-  -F "collection=general"
+  -F "collection=rh"
 ```
 
 ### Interroger la base
 
 ```bash
-# Test rapide CLI
 make query Q="Quelle est la politique de télétravail ?"
-
-# Streaming SSE
 make query-stream Q="Résume le processus d'onboarding"
+
+# Accès guest sans token (collection general uniquement)
+curl -X POST http://localhost:8000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"question":"test","collection":"general","stream":false}'
 ```
+
+---
+
+## Monitoring
+
+Le dashboard Grafana se charge automatiquement au démarrage.
+
+```bash
+make monitoring-up    # Démarrer Prometheus + Grafana
+make metrics          # Voir les métriques RAG brutes
+```
+
+**Métriques disponibles :**
+- `rag_query_latency_seconds` — latence P50/P95/P99 par collection
+- `rag_query_total` — volume de requêtes par collection et rôle
+- `rag_tokens_used_total` — tokens LLM consommés
+- `rag_feedback_total` — feedback 👍/👎 reçu
+- `rag_documents_ingested_total` — chunks ingérés par collection
+- `rag_active_streams` — streams SSE actifs en temps réel
+
+---
+
+## RBAC
+
+| Rôle | Collections accessibles | Peut ingérer |
+|------|------------------------|--------------|
+| `guest` (sans token) | `general` | Non |
+| `user` | Selon `allowed_collections` | Non |
+| `admin` | Toutes | Oui |
 
 ---
 
 ## Configuration
 
-Les variables d'environnement clés dans `.env` :
-
 | Variable | Description | Défaut |
 |----------|-------------|--------|
 | `OPENROUTER_API_KEY` | Clé API OpenRouter **(obligatoire)** | — |
-| `LLM_MODEL` | Modèle LLM via OpenRouter | `anthropic/claude-haiku-4.5` |
-| `EMBEDDING_MODEL` | Modèle fastembed local (384d) | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` |
-| `EMBEDDING_DIMENSIONS` | Dimensions des vecteurs | `384` |
-| `COHERE_API_KEY` | Reranker Cohere (optionnel) | — |
 | `SECRET_KEY` | Clé JWT — générer avec `make gen-secret` | `changeme` |
-| `CORS_ORIGINS` | Origines autorisées | `http://localhost:3000` |
+| `LLM_MODEL` | Modèle LLM via OpenRouter | `anthropic/claude-haiku-4.5` |
+| `COHERE_API_KEY` | Reranker Cohere (optionnel) | — |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Durée access token | `15` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Durée refresh token | `7` |
 
-> Voir [`.env.example`](.env.example) pour la liste complète avec commentaires.
+> Voir [`.env.example`](.env.example) pour la liste complète.
 
 ---
 
 ## Commandes Makefile
 
 ```bash
-make setup          # Installation complète + DB
-make dev            # Backend :8000 + Frontend :3000 (dev local)
-make up             # Docker Compose up -d
-make down           # Docker Compose down
-make build          # Rebuild les images Docker
-make logs           # Logs de tous les services
-make test           # Tests pytest
-make lint           # Ruff + ESLint
-make format         # Ruff format + Prettier
-make health         # Vérifier l'état de l'API
-make ingest-pdf     # Ingérer un PDF (FILE=... COLLECTION=...)
-make query          # Tester une requête (Q=...)
-make gen-secret     # Générer un SECRET_KEY sécurisé
-make reset-db       # Recréer la DB (CONFIRM=yes)
-make clean          # Nettoyer les fichiers temporaires
+make setup                    # Installation complète + DB
+make dev                      # Backend :8000 + Frontend :3000 (dev local)
+make up / down / build        # Docker Compose
+make test / lint / format     # Qualité
+make health / metrics         # État de l'API + métriques Prometheus
+make monitoring-up            # Démarrer Prometheus + Grafana
+make create-admin-script      # EMAIL=... PASSWORD=... → compte admin
+make ingest-pdf               # FILE=... COLLECTION=...
+make query / query-stream     # Q="votre question"
+make gen-secret               # Générer un SECRET_KEY sécurisé
+make reset-db CONFIRM=yes     # Recréer la DB (DESTRUCTIF)
 ```
 
 ---
@@ -192,20 +237,21 @@ make clean          # Nettoyer les fichiers temporaires
 ```
 Question utilisateur
     │
-    ├─► Embedding de la query (fastembed local, 384d)
+    ├─► RBAC → can_access(collection) ?
     │
-    ├─► Dense search    ─┐
-    │   (cosinus pgvec)  ├─► RRF Fusion ─► Top K chunks
-    ├─► Sparse search   ─┘
+    ├─► Embedding (fastembed local, 384d)
+    │
+    ├─► Dense search  ─┐
+    │   (cosinus pgvec) ├─► RRF Fusion ─► Top K chunks
+    ├─► Sparse search  ─┘
     │   (BM25 PostgreSQL FTS)
     │
-    ├─► Cohere Rerank ─► Top 5 chunks (fallback cosinus)
+    ├─► Cohere Rerank ─► Top 5 (fallback cosinus)
     │
-    └─► Génération LLM (OpenRouter streaming SSE)
+    └─► Génération LLM streaming (OpenRouter SSE)
              │
-             └─► Réponse avec citations [1][2]
-                 + query_log_id → Feedback 👍/👎
-                 + Audit log (user, latence, tokens)
+             └─► Réponse [1][2] + query_log_id → Feedback 👍/👎
+                 + Audit log + métriques Prometheus
 ```
 
 ---
@@ -216,28 +262,37 @@ Question utilisateur
 rag-enterprise/
 ├── backend/
 │   ├── app/
-│   │   ├── api/routes/     # query.py, ingest.py, health.py
-│   │   ├── core/           # config.py, database.py, security.py
-│   │   ├── ingestion/      # pdf_loader, confluence, slack, chunker, embedder
-│   │   ├── models/         # db.py (ORM SQLAlchemy), schemas.py (Pydantic v2)
-│   │   ├── rag/            # pipeline.py, retriever.py, reranker.py, generator.py
-│   │   └── workers/        # Celery tasks (ingestion async)
-│   ├── migrations/         # 001_initial.sql (pgvector + tables)
-│   ├── Dockerfile
+│   │   ├── api/
+│   │   │   ├── deps.py          # CurrentUser, RBAC (get/require_user/require_admin)
+│   │   │   └── routes/          # auth.py, query.py, ingest.py, health.py
+│   │   ├── core/
+│   │   │   ├── config.py        # Pydantic-settings
+│   │   │   ├── metrics.py       # Compteurs Prometheus custom
+│   │   │   └── security.py      # JWT, bcrypt
+│   │   ├── ingestion/           # pdf_loader, confluence, slack, chunker, embedder
+│   │   ├── models/              # db.py (ORM), schemas.py (Pydantic v2)
+│   │   ├── rag/                 # pipeline.py, retriever.py, reranker.py, generator.py
+│   │   └── workers/             # Celery tasks
+│   ├── migrations/              # 001_initial.sql, 002_users.sql
+│   ├── tests/                   # pytest
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
-│       ├── app/            # Next.js App Router (layout + page)
-│       ├── components/     # Chat, MessageBubble, SourceCard,
-│       │                   # DocumentPanel, UploadZone, EmptyState
-│       ├── store/          # useStore.ts (Zustand — collection, messages, jobs)
-│       └── lib/            # api.ts (SSE client, ingest, feedback)
-├── docker-compose.yml      # postgres, redis, backend, worker, frontend
-├── postgres.Dockerfile     # pgvector:pg16 + migration SQL
-├── Makefile                # ~30 cibles de développement
-├── .env.example            # Variables d'environnement documentées
-├── .pre-commit-config.yaml # ruff, mypy, detect-secrets, prettier, sqlfluff
-└── pyproject.toml          # Config ruff + mypy + pytest
+│       ├── app/                 # Next.js App Router
+│       ├── components/          # Chat, DocumentPanel, UploadZone,
+│       │                        # MessageBubble, EmptyState, LoginModal
+│       ├── store/               # useStore.ts (Zustand)
+│       └── lib/                 # api.ts (auth + SSE + feedback)
+├── monitoring/
+│   ├── prometheus.yml           # Scrape config
+│   └── grafana/
+│       ├── provisioning/        # Datasource + dashboard auto-load
+│       └── dashboards/          # rag_overview.json (10 panneaux)
+├── .github/workflows/ci.yml    # Lint + tests + build Docker
+├── docker-compose.yml           # postgres, redis, backend, worker, frontend,
+│                                # prometheus, grafana
+├── Makefile                     # ~35 cibles
+└── .env.example
 ```
 
 ---
@@ -247,18 +302,18 @@ rag-enterprise/
 - [x] Pipeline RAG MVP (PDF + hybrid search + streaming SSE)
 - [x] Ingestion Confluence & Slack
 - [x] Déduplication par checksum MD5
-- [x] Audit log complet (query_logs)
+- [x] Audit log complet (`query_logs`)
 - [x] Interface chat Next.js avec citations de sources
 - [x] Upload drag-and-drop + sidebar de gestion des documents
 - [x] Feedback 👍/👎 tracé en base
 - [x] Store Zustand — état partagé multi-composants
-- [ ] Auth JWT + RBAC par collection
-- [ ] CI/CD GitHub Actions (lint + tests + build)
+- [x] CI/CD GitHub Actions (lint ruff + eslint + tests + build Docker)
+- [x] Auth JWT + RBAC par collection
+- [x] Métriques Prometheus + Dashboard Grafana pré-configuré
 - [ ] RAGAS evaluation automatique (faithfulness, relevancy)
 - [ ] HyDE query rewriting
 - [ ] Cache sémantique Redis (questions similaires)
 - [ ] PII detection (Microsoft Presidio)
-- [ ] Dashboards Grafana (latence, coûts, qualité)
 - [ ] Connecteurs Google Drive & SharePoint
 - [ ] Slack Bot (`/ask` command)
 - [ ] Agent multi-step pour questions complexes

@@ -1,90 +1,80 @@
 # TODO — Plateforme RAG d'Entreprise
 
-## Phase 1 — MVP (Semaines 1-6)
+## Phase 1 — MVP ✅ Complète
 
 ### Infrastructure
 - [x] Structure du projet (monorepo)
-- [x] docker-compose.yml (PostgreSQL+pgvector, Redis, backend, frontend)
+- [x] docker-compose.yml (PostgreSQL+pgvector, Redis, backend, worker, frontend)
 - [x] Migration SQL initiale (tables + extension pgvector)
-- [ ] CI/CD GitHub Actions (lint + tests + build)
-- [ ] .github/workflows/ci.yml
+- [x] CI/CD GitHub Actions (lint ruff + eslint + tests pytest + build Docker)
+- [x] Prometheus + Grafana (monitoring/)
 
 ### Backend — Foundation
 - [x] FastAPI app entry point (`main.py`)
 - [x] Config Pydantic-settings (`core/config.py`)
 - [x] Database async SQLAlchemy + pgvector (`core/database.py`)
-- [x] Modèles ORM (`models/db.py`)
-- [x] Schémas Pydantic (`models/schemas.py`)
+- [x] Modèles ORM (`models/db.py`) — Document, QueryLog, User, IngestionJob
+- [x] Schémas Pydantic v2 (`models/schemas.py`)
 - [x] Health endpoint (`api/routes/health.py`)
-- [ ] Auth JWT + middleware (`core/security.py`, `api/deps.py`)
+- [x] Auth JWT + RBAC (`core/security.py`, `api/deps.py`, `api/routes/auth.py`)
+- [x] Migration users (`migrations/002_users.sql`)
+- [x] Métriques Prometheus (`core/metrics.py`)
 
 ### Backend — Ingestion Pipeline
 - [x] Base loader class (`ingestion/base.py`)
 - [x] Chunker hybride (`ingestion/chunker.py`)
-- [x] Embedder avec déduplication (`ingestion/embedder.py`)
+- [x] Embedder fastembed local + déduplication (`ingestion/embedder.py`)
 - [x] PDF loader (`ingestion/pdf_loader.py`)
-- [ ] Confluence loader (`ingestion/confluence.py`)
-- [ ] Slack loader (`ingestion/slack.py`)
-- [x] Ingest endpoint (`api/routes/ingest.py`)
-- [ ] Celery tasks pour ingestion async (`workers/tasks.py`)
-- [ ] Scheduler toutes les 4h
+- [x] Confluence loader (`ingestion/confluence.py`)
+- [x] Slack loader (`ingestion/slack.py`)
+- [x] Ingest endpoint admin-only (`api/routes/ingest.py`)
+- [x] Celery tasks ingestion async (`workers/tasks.py`)
 
 ### Backend — RAG Pipeline
-- [x] Retriever hybrid search (`rag/retriever.py`)
-- [x] Reranker Cohere avec fallback (`rag/reranker.py`)
-- [x] Generator streaming Claude (`rag/generator.py`)
-- [x] Pipeline principal (`rag/pipeline.py`)
-- [x] Query endpoint avec SSE (`api/routes/query.py`)
+- [x] Retriever hybrid search dense+BM25 RRF (`rag/retriever.py`)
+- [x] Reranker Cohere avec fallback cosinus (`rag/reranker.py`)
+- [x] Generator streaming OpenRouter (`rag/generator.py`)
+- [x] Pipeline complet avec query_log_id (`rag/pipeline.py`)
+- [x] Query endpoint RBAC + SSE + métriques (`api/routes/query.py`)
+- [x] Feedback 👍/👎 endpoint
 
 ### Frontend
-- [x] Layout + page principale
-- [x] Composant Chat avec streaming SSE
-- [x] MessageBubble (user/assistant)
-- [x] SourceCard (citations)
-- [x] API client (`lib/api.ts`)
-- [ ] Auth login page
-- [ ] Page historique des conversations
-
-### Frontend UX (branche `feat/frontend-ux`)
-- [x] Store Zustand (`src/store/useStore.ts`) — collection, messages, jobs ingestion
-- [x] Layout deux colonnes : sidebar + chat (`app/page.tsx`)
-- [x] `DocumentPanel.tsx` — sidebar upload + collection + liste jobs
-- [x] `UploadZone.tsx` — drag-and-drop PDF visible
-- [x] `EmptyState.tsx` — écran d'accueil avec suggestions cliquables
-- [x] `MessageBubble.tsx` — boutons feedback 👍/👎 activés
-- [x] `Chat.tsx` — refactorisé pour consommer le store
-- [x] Backend : `query_log_id` dans le chunk `done` (feedback loop)
+- [x] Layout deux colonnes (sidebar + chat)
+- [x] Composant Chat avec streaming SSE + store Zustand
+- [x] MessageBubble + boutons feedback 👍/👎
+- [x] SourceCard (citations avec score)
+- [x] DocumentPanel (collection selector + UploadZone + liste jobs)
+- [x] UploadZone drag-and-drop PDF
+- [x] EmptyState avec questions suggérées
+- [x] LoginModal + LoginButton (JWT localStorage)
+- [x] API client auth-aware (`lib/api.ts`) — authHeaders sur toutes les requêtes
 
 ### Tests
-- [ ] Tests ingestion PDF
+- [x] Tests config, schémas Pydantic, JWT roundtrip (`tests/test_config.py`)
+- [ ] Tests ingestion PDF (golden PDF)
 - [ ] Tests RAG pipeline (golden dataset 20 questions)
-- [ ] Tests API endpoints
-- [ ] Golden dataset : `tests/golden_dataset.json`
+- [ ] Tests API endpoints (httpx)
 
 ---
 
-## Phase 2 — Production (Semaines 7-12)
+## Phase 2 — Qualité & Production
 
-### Qualité Retrieval
+### Retrieval
 - [ ] HyDE (Hypothetical Document Embeddings) query rewriting
-- [ ] BM25 sparse search avec rank fusion
-- [ ] RAGAS evaluation automatique (faithfulness, relevancy)
-- [ ] Dashboard métriques qualité
+- [ ] RAGAS evaluation automatique (faithfulness, answer_relevancy, context_recall)
+- [ ] Golden dataset : `tests/golden_dataset.json`
 
-### Sécurité & Gouvernance
-- [ ] RBAC complet (documents taggés par département)
+### Sécurité
 - [ ] PII detection Microsoft Presidio avant embedding
-- [ ] Audit log immuable (table `query_logs`)
 - [ ] Guardrails anti-injection prompt (LLM Guard)
-- [ ] Rate limiting par utilisateur
+- [ ] Rate limiting par utilisateur (slowapi)
 
 ### Observabilité
-- [ ] LangSmith integration (tracing LLM)
-- [ ] Dashboards Grafana (latence, coûts, satisfaction)
-- [ ] Alerting PagerDuty/Slack si latence >5s ou erreur >1%
-- [ ] Cache sémantique Redis (questions similaires)
+- [ ] LangSmith integration (tracing LLM calls)
+- [ ] Cache sémantique Redis (questions similaires → réponse directe)
+- [ ] Alerting Grafana si latence P95 > 30s ou error rate > 1%
 
-### Connecteurs supplémentaires
+### Connecteurs
 - [ ] Google Drive connector
 - [ ] SharePoint connector
 - [ ] Jira connector
@@ -94,20 +84,24 @@
 ## Phase 3 — Scale (Continu)
 
 - [ ] Slack Bot natif (`/ask` command)
-- [ ] Agent multi-step pour questions complexes
-- [ ] Feedback loop 👍/👎 → amélioration reranker
+- [ ] Agent multi-step pour questions complexes (LangGraph)
+- [ ] Feedback loop 👍/👎 → fine-tuning reranker
 - [ ] Fine-tuning embeddings sur corpus interne
-- [ ] Multi-tenant isolation par projet
-- [ ] Migration Qdrant si >10M vecteurs
+- [ ] Multi-tenant isolation par organisation
+- [ ] Migration Qdrant si > 10M vecteurs
 
 ---
 
-## Bugs connus / Corrigés
-- [x] `asyncpg` syntax error `:vec::vector` → remplacé par `CAST(:vec AS vector)` dans `retriever.py`
-- [x] fastembed `BAAI/bge-m3` absent de v0.4.2 → remplacé par `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384d)_
+## Bugs corrigés
+- [x] `asyncpg` `:vec::vector` → `CAST(:vec AS vector)` dans `retriever.py`
+- [x] fastembed `BAAI/bge-m3` absent → `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384d)
+- [x] bcrypt 4.x incompatible passlib → pinner `bcrypt==3.2.2`
+- [x] `UserOut.id` UUID → str → `field_validator` mode=before
+- [x] 49 erreurs ruff (imports, B904, B905, C401, UP017) → corrigées + ruff pinner dans CI
 
-## Décisions techniques prises
-- pgvector vs Qdrant : pgvector choisi pour MVP (simplicité, ACID, SQL natif)
-- LangChain vs LlamaIndex : LangChain pour orchestration (plus mature pour streaming)
-- Claude 3.5 Sonnet comme LLM principal (200K context, prompt caching)
-- text-embedding-3-large pour embeddings (1536 dims après réduction)
+## Décisions techniques
+- pgvector vs Qdrant : pgvector pour MVP (simplicité, ACID, SQL natif)
+- LangChain pour orchestration (mature pour streaming)
+- OpenRouter comme gateway LLM (multi-modèles, no vendor lock-in)
+- fastembed local pour embeddings (no API key, FR/EN, 384d)
+- Prometheus + Grafana vs Datadog : stack open-source, self-hosted

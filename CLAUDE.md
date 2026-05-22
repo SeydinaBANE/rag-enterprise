@@ -4,11 +4,13 @@
 Système RAG (Retrieval-Augmented Generation) d'entreprise. Les utilisateurs posent des questions en langage naturel sur des documents internes (PDF, Confluence, Slack). Le backend répond en streaming avec citations de sources.
 
 ## Architecture
-- **Backend** : Python 3.11 + FastAPI + LangChain, dans `backend/`
+- **Backend** : Python 3.11 + FastAPI, dans `backend/`
 - **Frontend** : Next.js 15 + Tailwind CSS + Zustand, dans `frontend/` (pas de shadcn — styles Tailwind maison)
-- **Vector DB** : pgvector (PostgreSQL), config dans `docker-compose.yml`
-- **Cache** : Redis
+- **Vector DB** : pgvector (PostgreSQL 16), config dans `docker-compose.yml`
+- **Cache** : Redis 7
 - **Workers** : Celery pour l'ingestion asynchrone
+- **Auth** : JWT (python-jose) + RBAC par collection — `backend/app/api/deps.py`
+- **Monitoring** : Prometheus `:9090` + Grafana `:3001` — `monitoring/`
 
 ## Commandes essentielles
 
@@ -25,12 +27,19 @@ cd frontend && npm run dev
 # Tests backend
 cd backend && pytest tests/ -v
 
-# Ingestion manuelle d'un PDF
+# Linter (doit passer à 0 erreur)
+cd backend && ruff check app/
+
+# Créer un admin
+make create-admin-script EMAIL=admin@example.com PASSWORD=secret
+
+# Ingestion manuelle d'un PDF (token admin requis)
 curl -X POST http://localhost:8000/api/ingest/pdf \
+  -H "Authorization: Bearer $TOKEN" \
   -F "file=@doc.pdf" \
   -F "collection=general"
 
-# Query test
+# Query test (guest, pas de token)
 curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
   -d '{"question": "Quelle est la politique de congés ?"}'
@@ -44,22 +53,31 @@ curl -X POST http://localhost:8000/api/query \
 - Typage strict partout (`-> str`, `-> list[Document]`)
 - Pas de `print()` — utiliser `logging` ou `structlog`
 - Async/await partout dans les routes FastAPI
+- Imports triés (isort via ruff) — ruff pinner à `0.15.14` dans la CI
 
 ### TypeScript (frontend)
 - `'use client'` seulement quand nécessaire (hooks, events)
-- Fetches via `src/lib/api.ts` uniquement, jamais directement dans les composants
+- Fetches via `src/lib/api.ts` uniquement — auth headers inclus automatiquement via `authHeaders()`
 - SSE (Server-Sent Events) pour le streaming des réponses
-- État global via Zustand (`src/store/useStore.ts`) — collection, messages, jobs d'ingestion
+- État global via Zustand (`src/store/useStore.ts`) — `user`, `collection`, `messages`, `ingestionJobs`
 - Layout deux colonnes : `DocumentPanel` (sidebar gauche) + `Chat` (zone principale)
 
 ## Variables d'environnement
 Voir `.env.example`. Copier en `.env` pour le dev local. Ne jamais committer `.env`.
 
 ## Points d'attention
-- Les embeddings coûtent de l'argent — toujours vérifier la déduplication avant d'embedder (champ `checksum` dans `documents`)
-- Le RBAC est géré dans `backend/app/api/deps.py` via `get_current_user` — ne jamais bypasser
-- Toutes les requêtes utilisateur sont loggées dans la table `query_logs` (audit trail)
-- Le reranker Cohere est optionnel (si `COHERE_API_KEY` absent, fallback sur score cosinus seul)
+- **RBAC** : géré dans `backend/app/api/deps.py` via `CurrentUser.can_access(collection)` — ne jamais bypasser
+- **Ingest** : nécessite `require_admin` — les routes `/api/ingest/*` sont réservées aux admins
+- **Embeddings** : fastembed local (no API key), `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensions
+- **Déduplication** : champ `checksum` dans `documents` — toujours vérifier avant d'embedder
+- **Audit trail** : toutes les requêtes loggées dans `query_logs` (user_id, question, sources, latence, tokens)
+- **Reranker** : Cohere optionnel (`COHERE_API_KEY`), fallback cosinus si absent
+- **Métriques** : `backend/app/core/metrics.py` — 6 compteurs Prometheus, exposés sur `/metrics`
+- **bcrypt** : pinner à `==3.2.2` (passlib incompatible avec bcrypt 4.x)
+
+## Structure des migrations
+- `backend/migrations/001_initial.sql` — tables documents, query_logs, ingestion_jobs + pgvector
+- `backend/migrations/002_users.sql` — table users (auth JWT + RBAC)
 
 ## Skill routing
 - Bugs/erreurs → `/investigate`
