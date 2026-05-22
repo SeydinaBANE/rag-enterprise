@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
-from app.api.deps import get_current_user
+from app.api.deps import require_admin, CurrentUser
 from app.models.schemas import IngestResponse
 from app.ingestion.pdf_loader import PDFLoader
 from app.ingestion.confluence import ConfluenceLoader
@@ -21,7 +21,7 @@ async def ingest_pdf(
     file: UploadFile = File(...),
     collection: str = Form(default="general"),
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ) -> IngestResponse:
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
@@ -54,7 +54,7 @@ async def ingest_confluence(
     space_key: str,
     collection: str = "general",
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ) -> IngestResponse:
     loader = ConfluenceLoader(space_key)
     chunks_count = await loader.ingest(db, collection)

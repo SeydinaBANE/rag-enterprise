@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { SourceDoc } from "@/lib/api";
+import type { SourceDoc, UserOut } from "@/lib/api";
 
 export interface IngestionJob {
   id: string;
@@ -20,6 +20,9 @@ export interface Message {
 }
 
 interface AppState {
+  user: UserOut | null;
+  setUser: (u: UserOut | null) => void;
+
   collection: string;
   setCollection: (c: string) => void;
 
@@ -35,6 +38,9 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
+  user: null,
+  setUser: (u) => set({ user: u }),
+
   collection: "general",
   setCollection: (c) => set({ collection: c }),
 

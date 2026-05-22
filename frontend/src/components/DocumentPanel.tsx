@@ -2,6 +2,7 @@
 
 import { FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { UploadZone } from "./UploadZone";
+import { LoginButton } from "./LoginModal";
 import { useStore, type IngestionJob } from "@/store/useStore";
 import { ingestPDF } from "@/lib/api";
 
@@ -34,7 +35,8 @@ export function DocumentPanel() {
     <aside className="w-72 flex-shrink-0 flex flex-col h-screen bg-zinc-900 border-r border-zinc-800">
       <div className="px-4 py-4 border-b border-zinc-800">
         <h2 className="text-sm font-semibold text-zinc-200">Documents</h2>
-        <p className="text-xs text-zinc-500 mt-0.5">Gérer vos sources de données</p>
+        <p className="text-xs text-zinc-500 mt-0.5 mb-3">Gérer vos sources de données</p>
+        <LoginButton />
       </div>
 
       <div className="px-4 py-3 border-b border-zinc-800 space-y-1.5">

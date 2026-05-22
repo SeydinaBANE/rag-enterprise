@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr, field_validator
 
 
 class QueryRequest(BaseModel):
@@ -51,3 +51,42 @@ class HealthResponse(BaseModel):
     db: str
     redis: str
     version: str = "1.0.0"
+
+
+# ── Auth & Users ──────────────────────────────────────────────────────────────
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    full_name: str | None = None
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+    full_name: str | None
+    role: str
+    allowed_collections: list[str]
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: object) -> str:
+        return str(v)
