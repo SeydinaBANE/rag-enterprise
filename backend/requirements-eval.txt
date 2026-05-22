@@ -1,0 +1,7 @@
+# Évaluation RAGAS — dépendances lourdes, NON incluses dans le CI
+# Installation : pip install -r requirements-eval.txt
+# Usage       : python tests/evaluate_ragas.py
+
+ragas>=0.2.0
+datasets>=2.18.0
+langchain-openai>=0.2.0

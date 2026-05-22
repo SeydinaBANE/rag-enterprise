@@ -4,16 +4,27 @@ import logging
 import time
 from collections.abc import AsyncIterator
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.ingestion.embedder import embed_query
 from app.models.db import QueryLog
 from app.models.schemas import QueryResponse, SourceDoc, StreamChunk
+from app.rag.cache import get_cached, set_cached
 from app.rag.generator import generate, generate_stream
 from app.rag.reranker import rerank
 from app.rag.retriever import retrieve
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+async def _get_query_embedding(question: str) -> list[float]:
+    if settings.hyde_enabled:
+        from app.rag.hyde import hyde_embed
+        return await hyde_embed(question)
+    return await embed_query(question)
 
 
 async def query_stream(
@@ -21,23 +32,20 @@ async def query_stream(
     question: str,
     collection: str = "general",
     user_id: str | None = None,
+    redis: Redis | None = None,
 ) -> AsyncIterator[StreamChunk]:
-    """Full RAG pipeline with streaming. Yields StreamChunk objects."""
+    """Full RAG pipeline with streaming. SSE responses are not cached."""
     start = time.perf_counter()
 
-    # 1. Embed query
-    query_embedding = await embed_query(question)
+    query_embedding = await _get_query_embedding(question)
 
-    # 2. Hybrid retrieval
     candidates = await retrieve(db, query_embedding, question, collection)
     if not candidates:
         yield StreamChunk(type="error", content="Aucun document pertinent trouvé.")
         return
 
-    # 3. Rerank
     sources = await rerank(question, candidates)
 
-    # 4. Stream generation
     full_answer = []
     async for token in generate_stream(question, sources):
         full_answer.append(token)
@@ -46,7 +54,6 @@ async def query_stream(
     answer = "".join(full_answer)
     latency_ms = int((time.perf_counter() - start) * 1000)
 
-    # 5. Send sources then audit log (done carries the log id for client feedback)
     yield StreamChunk(type="sources", sources=sources)
     log_id = await _log_query(db, user_id, question, answer, sources, latency_ms, collection)
     yield StreamChunk(type="done", query_log_id=log_id)
@@ -57,11 +64,17 @@ async def query(
     question: str,
     collection: str = "general",
     user_id: str | None = None,
+    redis: Redis | None = None,
 ) -> QueryResponse:
-    """Full RAG pipeline without streaming."""
+    """Full RAG pipeline without streaming. Checks and populates Redis cache."""
+    if redis is not None:
+        cached = await get_cached(redis, question, collection)
+        if cached:
+            return QueryResponse(**cached)
+
     start = time.perf_counter()
 
-    query_embedding = await embed_query(question)
+    query_embedding = await _get_query_embedding(question)
     candidates = await retrieve(db, query_embedding, question, collection)
 
     if not candidates:
@@ -77,12 +90,12 @@ async def query(
 
     await _log_query(db, user_id, question, answer, sources, latency_ms, collection, tokens_used)
 
-    return QueryResponse(
-        answer=answer,
-        sources=sources,
-        latency_ms=latency_ms,
-        tokens_used=tokens_used,
-    )
+    result = QueryResponse(answer=answer, sources=sources, latency_ms=latency_ms, tokens_used=tokens_used)
+
+    if redis is not None:
+        await set_cached(redis, question, collection, result.model_dump(), settings.cache_ttl_seconds)
+
+    return result
 
 
 async def _log_query(

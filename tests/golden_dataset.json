@@ -1,0 +1,148 @@
+{
+  "version": "1.0",
+  "description": "Golden dataset pour évaluation RAGAS — 20 questions représentatives des employés",
+  "instructions": "Remplir reference_answer et ground_truth_contexts avec de vraies données avant d'évaluer.",
+  "questions": [
+    {
+      "id": "rh-001",
+      "collection": "rh",
+      "question": "Quelle est la politique de télétravail de l'entreprise ?",
+      "reference_answer": "TODO: remplir après ingestion du document politique RH",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "rh-002",
+      "collection": "rh",
+      "question": "Combien de jours de congés payés par an ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "rh-003",
+      "collection": "rh",
+      "question": "Comment soumettre une note de frais ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "rh-004",
+      "collection": "rh",
+      "question": "Quelles sont les étapes du processus d'onboarding ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "rh-005",
+      "collection": "rh",
+      "question": "Quelle est la procédure pour demander une formation ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "tech-001",
+      "collection": "tech",
+      "question": "Quelle est l'architecture de déploiement en production ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "tech-002",
+      "collection": "tech",
+      "question": "Comment accéder aux logs applicatifs ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "tech-003",
+      "collection": "tech",
+      "question": "Quelle est la procédure de code review ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "tech-004",
+      "collection": "tech",
+      "question": "Comment déployer une nouvelle version en production ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "tech-005",
+      "collection": "tech",
+      "question": "Quels sont les SLAs des services critiques ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "finance-001",
+      "collection": "finance",
+      "question": "Quel est le processus de validation budgétaire ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "finance-002",
+      "collection": "finance",
+      "question": "Quels achats nécessitent une validation direction ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "finance-003",
+      "collection": "finance",
+      "question": "Quel est le délai de remboursement des frais professionnels ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "general-001",
+      "collection": "general",
+      "question": "Quelles sont les valeurs de l'entreprise ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "general-002",
+      "collection": "general",
+      "question": "Comment contacter le support informatique ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "general-003",
+      "collection": "general",
+      "question": "Quelle est la politique de sécurité des mots de passe ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "general-004",
+      "collection": "general",
+      "question": "Quels outils de communication sont utilisés en interne ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "general-005",
+      "collection": "general",
+      "question": "Comment signaler un incident de sécurité ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    },
+    {
+      "id": "edge-001",
+      "collection": "general",
+      "question": "Quelle est la recette de la tarte aux pommes de la cantine ?",
+      "reference_answer": "Je n'ai pas trouvé d'information sur ce sujet dans les documents disponibles.",
+      "ground_truth_contexts": [],
+      "expected_no_answer": true
+    },
+    {
+      "id": "edge-002",
+      "collection": "general",
+      "question": "Qui a fondé l'entreprise et en quelle année ?",
+      "reference_answer": "TODO",
+      "ground_truth_contexts": []
+    }
+  ]
+}
