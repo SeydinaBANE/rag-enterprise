@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 import logging
 from pathlib import Path
+
 import pdfplumber
+
 from app.ingestion.base import BaseLoader
 
 logger = logging.getLogger(__name__)
@@ -23,7 +26,7 @@ class PDFLoader(BaseLoader):
         with pdfplumber.open(self.file_path) as pdf:
             full_text_parts: list[str] = []
 
-            for page_num, page in enumerate(pdf.pages, start=1):
+            for _page_num, page in enumerate(pdf.pages, start=1):
                 text = page.extract_text() or ""
 
                 # Extract tables as markdown-style text

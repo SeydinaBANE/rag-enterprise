@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
+
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
-from app.core.security import decode_token, GUEST_COLLECTIONS
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.core.security import GUEST_COLLECTIONS, decode_token
 
 bearer = HTTPBearer(auto_error=False)
 

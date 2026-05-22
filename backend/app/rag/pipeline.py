@@ -1,14 +1,17 @@
 from __future__ import annotations
+
 import logging
 import time
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.schemas import QueryResponse, SourceDoc, StreamChunk
+
 from app.ingestion.embedder import embed_query
-from app.rag.retriever import retrieve
-from app.rag.reranker import rerank
-from app.rag.generator import generate_stream, generate
 from app.models.db import QueryLog
+from app.models.schemas import QueryResponse, SourceDoc, StreamChunk
+from app.rag.generator import generate, generate_stream
+from app.rag.reranker import rerank
+from app.rag.retriever import retrieve
 
 logger = logging.getLogger(__name__)
 

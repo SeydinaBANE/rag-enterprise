@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
-from slack_sdk import WebClient
-from app.ingestion.base import BaseLoader
+
 from app.core.config import get_settings
+from app.ingestion.base import BaseLoader
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

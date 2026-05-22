@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 import asyncio
+
 from celery import Celery
+
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -43,7 +46,7 @@ def ingest_pdf_task(self, file_path: str, collection: str = "general"):
     try:
         return _run_async(_run())
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
 
 @celery_app.task(name="app.workers.tasks.ingest_confluence", bind=True, max_retries=3)
@@ -59,7 +62,7 @@ def ingest_confluence_task(self, space_key: str, collection: str = "general"):
     try:
         return _run_async(_run())
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=120)
+        raise self.retry(exc=exc, countdown=120) from exc
 
 
 @celery_app.task(name="app.workers.tasks.refresh_all_sources")

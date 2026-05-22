@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+
 from openai import AsyncOpenAI
-from app.models.schemas import SourceDoc
+
 from app.core.config import get_settings
+from app.models.schemas import SourceDoc
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

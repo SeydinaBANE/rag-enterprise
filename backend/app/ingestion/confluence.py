@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import logging
+
 from atlassian import Confluence
 from bs4 import BeautifulSoup
-from app.ingestion.base import BaseLoader
+
 from app.core.config import get_settings
+from app.ingestion.base import BaseLoader
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

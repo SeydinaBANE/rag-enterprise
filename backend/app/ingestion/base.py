@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import UTC, datetime
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.ingestion.chunker import Chunk, chunk_text
+from app.ingestion.embedder import compute_checksum, embed_texts
 from app.models.db import Document, IngestionJob
-from app.ingestion.chunker import chunk_text, Chunk
-from app.ingestion.embedder import embed_texts, compute_checksum
-from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class BaseLoader(ABC):
             source_type=self.source_type,
             source_id=self._source_id(),
             status="running",
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
         db.add(job)
         await db.commit()
@@ -39,7 +42,7 @@ class BaseLoader(ABC):
 
             job.status = "done"
             job.chunks_count = new_count
-            job.finished_at = datetime.now(timezone.utc)
+            job.finished_at = datetime.now(UTC)
             await db.commit()
             logger.info("%s ingestion done: %d new chunks", self.source_type, new_count)
             return new_count
@@ -47,7 +50,7 @@ class BaseLoader(ABC):
         except Exception as exc:
             job.status = "failed"
             job.error = str(exc)
-            job.finished_at = datetime.now(timezone.utc)
+            job.finished_at = datetime.now(UTC)
             await db.commit()
             raise
 
@@ -59,14 +62,14 @@ class BaseLoader(ABC):
         checksums = [compute_checksum(c) for c in contents]
 
         # Filter already-existing chunks by checksum (deduplication)
-        existing = set(
+        existing = {
             row[0]
             for row in (
                 await db.execute(select(Document.checksum).where(Document.checksum.in_(checksums)))
             ).all()
-        )
+        }
 
-        new_chunks = [(chunk, cs) for chunk, cs in zip(chunks, checksums) if cs not in existing]
+        new_chunks = [(chunk, cs) for chunk, cs in zip(chunks, checksums, strict=False) if cs not in existing]
         if not new_chunks:
             return 0
 
@@ -83,7 +86,7 @@ class BaseLoader(ABC):
                 metadata_=chunk.metadata,
                 collection=collection,
             )
-            for (chunk, cs), emb in zip(new_chunks, embeddings)
+            for (chunk, cs), emb in zip(new_chunks, embeddings, strict=False)
         ]
         db.add_all(docs)
         await db.commit()

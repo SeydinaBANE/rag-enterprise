@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import logging
+
 import cohere
-from app.models.schemas import SourceDoc
+
 from app.core.config import get_settings
+from app.models.schemas import SourceDoc
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -36,7 +39,7 @@ async def rerank(query: str, docs: list[SourceDoc], top_n: int | None = None) ->
             top_n=n,
         )
         reranked = [docs[r.index] for r in response.results]
-        for i, (result, doc) in enumerate(zip(response.results, reranked)):
+        for _i, (result, doc) in enumerate(zip(response.results, reranked, strict=False)):
             doc.score = round(result.relevance_score, 4)
         logger.debug("Reranked %d → %d docs", len(docs), len(reranked))
         return reranked

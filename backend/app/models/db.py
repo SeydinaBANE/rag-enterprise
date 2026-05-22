@@ -1,14 +1,16 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import String, Text, Integer, SmallInteger, DateTime, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from datetime import UTC, datetime
+
 from pgvector.sqlalchemy import Vector
+from sqlalchemy import Boolean, DateTime, Integer, SmallInteger, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
 from app.core.database import Base
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Document(Base):

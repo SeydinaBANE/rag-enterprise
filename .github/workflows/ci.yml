@@ -23,7 +23,7 @@ jobs:
 
       - name: Ruff lint
         run: |
-          pip install ruff
+          pip install ruff==0.15.14
           cd backend && ruff check app/
 
       - name: Setup Node
@@ -94,6 +94,8 @@ jobs:
         run: |
           psql postgresql://rag:rag@localhost:5432/ragdb \
             -f backend/migrations/001_initial.sql
+          psql postgresql://rag:rag@localhost:5432/ragdb \
+            -f backend/migrations/002_users.sql
 
       - name: Run tests
         run: cd backend && pytest tests/ -v --tb=short

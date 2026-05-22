@@ -1,17 +1,19 @@
 from __future__ import annotations
+
 import time
-import json
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import CurrentUser, get_current_user
 from app.core.database import get_db
-from app.api.deps import get_current_user, CurrentUser
-from app.models.schemas import QueryRequest, QueryResponse, FeedbackRequest
-from app.rag.pipeline import query_stream, query
+from app.core.metrics import ACTIVE_STREAMS, FEEDBACK_TOTAL, QUERY_LATENCY, QUERY_TOTAL, TOKENS_USED
 from app.models.db import QueryLog
-from app.core.metrics import QUERY_LATENCY, QUERY_TOTAL, TOKENS_USED, FEEDBACK_TOTAL, ACTIVE_STREAMS
-from sqlalchemy import select, update
-import uuid
+from app.models.schemas import FeedbackRequest, QueryRequest
+from app.rag.pipeline import query, query_stream
 
 router = APIRouter()
 
@@ -63,8 +65,8 @@ async def submit_feedback(
 ) -> dict:
     try:
         log_id = uuid.UUID(req.query_log_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="ID invalide")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="ID invalide") from exc
 
     stmt = (
         update(QueryLog)
