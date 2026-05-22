@@ -51,27 +51,28 @@
 
 ### Tests
 - [x] Tests config, schémas Pydantic, JWT roundtrip (`tests/test_config.py`)
+- [x] Tests API endpoints httpx — 22 tests (auth, query, RBAC, feedback, ingest) (`tests/test_api.py`)
 - [ ] Tests ingestion PDF (golden PDF)
 - [ ] Tests RAG pipeline (golden dataset 20 questions)
-- [ ] Tests API endpoints (httpx)
 
 ---
 
-## Phase 2 — Qualité & Production
+## Phase 2 — Qualité & Production ✅ Complète
 
 ### Retrieval
-- [ ] HyDE (Hypothetical Document Embeddings) query rewriting
-- [ ] RAGAS evaluation automatique (faithfulness, answer_relevancy, context_recall)
-- [ ] Golden dataset : `tests/golden_dataset.json`
+- [x] HyDE (Hypothetical Document Embeddings) — `rag/hyde.py`, activable via `HYDE_ENABLED=true`
+- [x] Golden dataset : `tests/golden_dataset.json` (20 questions, à compléter après ingestion)
+- [x] Script RAGAS : `tests/evaluate_ragas.py` + `requirements-eval.txt`
+- [ ] RAGAS évaluation sur données réelles (nécessite documents ingérés)
 
 ### Sécurité
+- [x] Rate limiting par utilisateur — `core/rate_limit.py` (Redis INCR/EXPIRE, configurable via `RATE_LIMIT_QUERY_PER_MINUTE`)
 - [ ] PII detection Microsoft Presidio avant embedding
 - [ ] Guardrails anti-injection prompt (LLM Guard)
-- [ ] Rate limiting par utilisateur (slowapi)
 
 ### Observabilité
+- [x] Cache Redis exact-match — `rag/cache.py` (TTL configurable via `CACHE_TTL_SECONDS`, non-stream uniquement)
 - [ ] LangSmith integration (tracing LLM calls)
-- [ ] Cache sémantique Redis (questions similaires → réponse directe)
 - [ ] Alerting Grafana si latence P95 > 30s ou error rate > 1%
 
 ### Connecteurs
@@ -98,6 +99,8 @@
 - [x] bcrypt 4.x incompatible passlib → pinner `bcrypt==3.2.2`
 - [x] `UserOut.id` UUID → str → `field_validator` mode=before
 - [x] 49 erreurs ruff (imports, B904, B905, C401, UP017) → corrigées + ruff pinner dans CI
+- [x] slowapi casse la signature FastAPI (`req` interprété comme query param) → rate limiting via dépendance FastAPI + Redis
+- [x] asyncpg `InterfaceError: another operation is in progress` en tests → `NullPool` SQLAlchemy dans `conftest.py`
 
 ## Décisions techniques
 - pgvector vs Qdrant : pgvector pour MVP (simplicité, ACID, SQL natif)
@@ -105,3 +108,4 @@
 - OpenRouter comme gateway LLM (multi-modèles, no vendor lock-in)
 - fastembed local pour embeddings (no API key, FR/EN, 384d)
 - Prometheus + Grafana vs Datadog : stack open-source, self-hosted
+- slowapi décorateurx → dépendance FastAPI pure pour rate limiting (évite conflit signature + compatible Depends)

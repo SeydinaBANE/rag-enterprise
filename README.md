@@ -20,12 +20,16 @@
 - **Feedback 👍/👎** — évaluer chaque réponse, résultat tracé en base
 - **Hybrid Search** — dense (embeddings) + sparse (BM25) fusionnés par Reciprocal Rank Fusion
 - **Reranker** — Cohere Rerank v3.5 pour maximiser la précision (fallback cosinus si absent)
+- **HyDE** — Hypothetical Document Embeddings, améliore le recall sans infra supplémentaire (`HYDE_ENABLED=true`)
+- **Cache Redis** — réponses non-stream mises en cache par question normalisée (TTL configurable)
+- **Rate limiting** — par utilisateur authentifié ou IP, configurable (`RATE_LIMIT_QUERY_PER_MINUTE`)
 - **Auth JWT + RBAC** — inscription/connexion, accès restreint par collection et par rôle
 - **Observabilité** — métriques Prometheus + dashboard Grafana pré-configuré
 - **Multi-sources** — PDF, Confluence, Slack export
 - **Déduplication** — checksum MD5 sur les chunks pour éviter les doublons
 - **Audit log** — toutes les requêtes tracées en base (user, question, sources, latence, tokens)
 - **Collections** — isolation par département (RH, Tech, Finance, Général)
+- **Tests** — 32 tests pytest (API httpx + config/schémas/JWT)
 
 ---
 
@@ -42,9 +46,10 @@
 │                    FASTAPI BACKEND                             │
 │                                                               │
 │  /api/auth/*   ──► JWT register / login / refresh / me        │
-│  /api/query    ──► RBAC ──► Hybrid Retrieval (dense + BM25)   │
-│                     ──► RRF Fusion ──► Cohere Rerank          │
-│                         ──► LLM streaming (OpenRouter)        │
+│  /api/query    ──► Rate limit ──► Cache Redis (non-stream)    │
+│                     ──► RBAC ──► HyDE embed (optionnel)       │
+│                         ──► Dense+BM25 ──► RRF ──► Rerank     │
+│                             ──► LLM streaming (OpenRouter)    │
 │  /api/ingest/* ──► require_admin                              │
 │  /metrics      ──► Prometheus scrape                          │
 └──────────┬────────────────────────────────┬──────────────────┘
@@ -75,7 +80,8 @@
 | **Reranker** | Cohere Rerank v3.5 (optionnel — fallback cosinus) |
 | **Vector DB** | pgvector + PostgreSQL 16 — index HNSW |
 | **Hybrid Search** | Dense cosinus + BM25 FTS → Reciprocal Rank Fusion |
-| **Cache / Queue** | Redis 7 + Celery |
+| **Cache** | Redis 7 — query cache exact-match + rate limiting |
+| **Queue** | Redis 7 + Celery (ingestion async) |
 | **Frontend** | Next.js 15, React 19, Tailwind CSS, Zustand |
 | **Monitoring** | Prometheus + Grafana 11 (dashboard pré-provisionné) |
 | **Conteneurs** | Docker + Docker Compose |
@@ -209,6 +215,9 @@ make metrics          # Voir les métriques RAG brutes
 | `COHERE_API_KEY` | Reranker Cohere (optionnel) | — |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Durée access token | `15` |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Durée refresh token | `7` |
+| `HYDE_ENABLED` | HyDE query rewriting (+1 LLM call/query) | `false` |
+| `CACHE_TTL_SECONDS` | TTL du cache Redis par question | `3600` |
+| `RATE_LIMIT_QUERY_PER_MINUTE` | Limite requêtes /query par user/IP | `20` |
 
 > Voir [`.env.example`](.env.example) pour la liste complète.
 
@@ -237,9 +246,14 @@ make reset-db CONFIRM=yes     # Recréer la DB (DESTRUCTIF)
 ```
 Question utilisateur
     │
+    ├─► Rate limiting (Redis INCR/EXPIRE — par user ou IP)
+    │
+    ├─► Cache Redis (exact-match normalisé) → HIT : réponse directe
+    │
     ├─► RBAC → can_access(collection) ?
     │
-    ├─► Embedding (fastembed local, 384d)
+    ├─► Embedding (HyDE si activé → doc hypothétique, sinon question brute)
+    │    fastembed local, 384d
     │
     ├─► Dense search  ─┐
     │   (cosinus pgvec) ├─► RRF Fusion ─► Top K chunks
@@ -252,6 +266,7 @@ Question utilisateur
              │
              └─► Réponse [1][2] + query_log_id → Feedback 👍/👎
                  + Audit log + métriques Prometheus
+                 + Cache Redis SET (non-stream uniquement)
 ```
 
 ---
@@ -268,14 +283,20 @@ rag-enterprise/
 │   │   ├── core/
 │   │   │   ├── config.py        # Pydantic-settings
 │   │   │   ├── metrics.py       # Compteurs Prometheus custom
+│   │   │   ├── rate_limit.py    # Rate limiting Redis par user/IP
+│   │   │   ├── redis.py         # Client Redis singleton
 │   │   │   └── security.py      # JWT, bcrypt
 │   │   ├── ingestion/           # pdf_loader, confluence, slack, chunker, embedder
 │   │   ├── models/              # db.py (ORM), schemas.py (Pydantic v2)
-│   │   ├── rag/                 # pipeline.py, retriever.py, reranker.py, generator.py
+│   │   ├── rag/                 # pipeline.py, retriever.py, reranker.py,
+│   │   │                        # generator.py, cache.py, hyde.py
 │   │   └── workers/             # Celery tasks
 │   ├── migrations/              # 001_initial.sql, 002_users.sql
-│   ├── tests/                   # pytest
+│   ├── tests/                   # pytest — test_config.py, test_api.py (32 tests)
 │   └── requirements.txt
+├── tests/
+│   ├── golden_dataset.json      # 20 questions RAGAS (à compléter après ingestion)
+│   └── evaluate_ragas.py        # Script d'évaluation RAGAS standalone
 ├── frontend/
 │   └── src/
 │       ├── app/                 # Next.js App Router
@@ -310,9 +331,12 @@ rag-enterprise/
 - [x] CI/CD GitHub Actions (lint ruff + eslint + tests + build Docker)
 - [x] Auth JWT + RBAC par collection
 - [x] Métriques Prometheus + Dashboard Grafana pré-configuré
-- [ ] RAGAS evaluation automatique (faithfulness, relevancy)
-- [ ] HyDE query rewriting
-- [ ] Cache sémantique Redis (questions similaires)
+- [x] Rate limiting par utilisateur (Redis INCR/EXPIRE)
+- [x] Cache Redis exact-match sur les queries non-stream
+- [x] HyDE query rewriting (activable via `HYDE_ENABLED=true`)
+- [x] Tests API complets — 32 tests pytest (httpx + ASGITransport)
+- [x] Golden dataset RAGAS + script d'évaluation (`tests/evaluate_ragas.py`)
+- [ ] RAGAS évaluation sur données réelles (documents ingérés requis)
 - [ ] PII detection (Microsoft Presidio)
 - [ ] Connecteurs Google Drive & SharePoint
 - [ ] Slack Bot (`/ask` command)
