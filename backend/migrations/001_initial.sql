@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS documents (
     title       VARCHAR(1000),
     content     TEXT         NOT NULL,
     checksum    VARCHAR(64)  NOT NULL,  -- MD5 of content for dedup
-    embedding   vector(1024),           -- fastembed BAAI/bge-m3
+    embedding   vector(384),            -- fastembed paraphrase-multilingual-MiniLM-L12-v2
     metadata    JSONB        NOT NULL DEFAULT '{}',
     collection  VARCHAR(200) NOT NULL DEFAULT 'general',
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

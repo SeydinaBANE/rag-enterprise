@@ -33,8 +33,8 @@ class Settings(BaseSettings):
 
     # RAG
     # Embeddings: local fastembed model (no API key needed)
-    embedding_model: str = "BAAI/bge-m3"
-    embedding_dimensions: int = 1024
+    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_dimensions: int = 384
     # LLM via OpenRouter — see https://openrouter.ai/models
     llm_model: str = "anthropic/claude-3.5-sonnet"
     retrieval_top_k: int = 20

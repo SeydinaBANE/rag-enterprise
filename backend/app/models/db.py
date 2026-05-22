@@ -20,7 +20,7 @@ class Document(Base):
     title: Mapped[str | None] = mapped_column(String(1000))
     content: Mapped[str] = mapped_column(Text, nullable=False)
     checksum: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1024))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384))
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     collection: Mapped[str] = mapped_column(String(200), default="general", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
