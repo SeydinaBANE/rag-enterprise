@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedding_dimensions: int = 384
     # LLM via OpenRouter — see https://openrouter.ai/models
-    llm_model: str = "anthropic/claude-3.5-sonnet"
+    llm_model: str = "anthropic/claude-haiku-4.5"
     retrieval_top_k: int = 20
     rerank_top_n: int = 5
     chunk_size: int = 512
