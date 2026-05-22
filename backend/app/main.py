@@ -2,6 +2,7 @@ import logging
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.config import get_settings
 from app.api.routes import health, query, ingest, auth
 
@@ -32,6 +33,8 @@ app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(ingest.router, prefix="/api", tags=["ingest"])
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 @app.on_event("startup")

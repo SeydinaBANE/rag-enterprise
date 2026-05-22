@@ -9,6 +9,7 @@ from app.api.deps import require_admin, CurrentUser
 from app.models.schemas import IngestResponse
 from app.ingestion.pdf_loader import PDFLoader
 from app.ingestion.confluence import ConfluenceLoader
+from app.core.metrics import DOCUMENTS_INGESTED
 
 router = APIRouter()
 UPLOADS_DIR = Path("uploads")
@@ -46,7 +47,9 @@ async def _run_pdf_ingestion(file_path: str, collection: str) -> None:
     from app.core.database import AsyncSessionLocal
     async with AsyncSessionLocal() as db:
         loader = PDFLoader(file_path)
-        await loader.ingest(db, collection)
+        chunks = await loader.ingest(db, collection)
+        if chunks:
+            DOCUMENTS_INGESTED.labels(collection=collection, source_type="pdf").inc(chunks)
 
 
 @router.post("/ingest/confluence", response_model=IngestResponse)
@@ -58,6 +61,7 @@ async def ingest_confluence(
 ) -> IngestResponse:
     loader = ConfluenceLoader(space_key)
     chunks_count = await loader.ingest(db, collection)
+    DOCUMENTS_INGESTED.labels(collection=collection, source_type="confluence").inc(chunks_count)
     return IngestResponse(
         job_id=f"confluence-{space_key}",
         status="done",

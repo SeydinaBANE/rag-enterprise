@@ -190,6 +190,23 @@ query-stream: ## Test une requête en streaming (usage: make query-stream Q="...
 health: ## Vérifie la santé de l'API
 	curl -s http://localhost:8000/api/health | python3 -m json.tool
 
+.PHONY: metrics
+metrics: ## Affiche les métriques Prometheus brutes
+	curl -s http://localhost:8000/metrics | grep "^rag_"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MONITORING
+# ─────────────────────────────────────────────────────────────────────────────
+.PHONY: monitoring-up
+monitoring-up: ## Lance Prometheus + Grafana
+	docker compose up -d prometheus grafana
+	@echo "$(GREEN)→ Grafana  : http://localhost:3001  (admin / admin)$(RESET)"
+	@echo "$(GREEN)→ Prometheus: http://localhost:9090$(RESET)"
+
+.PHONY: monitoring-down
+monitoring-down: ## Arrête Prometheus + Grafana
+	docker compose stop prometheus grafana
+
 # ─────────────────────────────────────────────────────────────────────────────
 # NETTOYAGE
 # ─────────────────────────────────────────────────────────────────────────────
