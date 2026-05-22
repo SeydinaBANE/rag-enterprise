@@ -45,6 +45,16 @@
 - [ ] Auth login page
 - [ ] Page historique des conversations
 
+### Frontend UX (branche `feat/frontend-ux`)
+- [x] Store Zustand (`src/store/useStore.ts`) — collection, messages, jobs ingestion
+- [x] Layout deux colonnes : sidebar + chat (`app/page.tsx`)
+- [x] `DocumentPanel.tsx` — sidebar upload + collection + liste jobs
+- [x] `UploadZone.tsx` — drag-and-drop PDF visible
+- [x] `EmptyState.tsx` — écran d'accueil avec suggestions cliquables
+- [x] `MessageBubble.tsx` — boutons feedback 👍/👎 activés
+- [x] `Chat.tsx` — refactorisé pour consommer le store
+- [x] Backend : `query_log_id` dans le chunk `done` (feedback loop)
+
 ### Tests
 - [ ] Tests ingestion PDF
 - [ ] Tests RAG pipeline (golden dataset 20 questions)
@@ -92,8 +102,9 @@
 
 ---
 
-## Bugs connus
-_(à remplir au fur et à mesure)_
+## Bugs connus / Corrigés
+- [x] `asyncpg` syntax error `:vec::vector` → remplacé par `CAST(:vec AS vector)` dans `retriever.py`
+- [x] fastembed `BAAI/bge-m3` absent de v0.4.2 → remplacé par `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384d)_
 
 ## Décisions techniques prises
 - pgvector vs Qdrant : pgvector choisi pour MVP (simplicité, ACID, SQL natif)

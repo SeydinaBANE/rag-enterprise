@@ -5,7 +5,7 @@ Système RAG (Retrieval-Augmented Generation) d'entreprise. Les utilisateurs pos
 
 ## Architecture
 - **Backend** : Python 3.11 + FastAPI + LangChain, dans `backend/`
-- **Frontend** : Next.js 14 + Tailwind + shadcn/ui, dans `frontend/`
+- **Frontend** : Next.js 15 + Tailwind CSS + Zustand, dans `frontend/` (pas de shadcn — styles Tailwind maison)
 - **Vector DB** : pgvector (PostgreSQL), config dans `docker-compose.yml`
 - **Cache** : Redis
 - **Workers** : Celery pour l'ingestion asynchrone
@@ -49,6 +49,8 @@ curl -X POST http://localhost:8000/api/query \
 - `'use client'` seulement quand nécessaire (hooks, events)
 - Fetches via `src/lib/api.ts` uniquement, jamais directement dans les composants
 - SSE (Server-Sent Events) pour le streaming des réponses
+- État global via Zustand (`src/store/useStore.ts`) — collection, messages, jobs d'ingestion
+- Layout deux colonnes : `DocumentPanel` (sidebar gauche) + `Chat` (zone principale)
 
 ## Variables d'environnement
 Voir `.env.example`. Copier en `.env` pour le dev local. Ne jamais committer `.env`.

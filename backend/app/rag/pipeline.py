@@ -43,12 +43,10 @@ async def query_stream(
     answer = "".join(full_answer)
     latency_ms = int((time.perf_counter() - start) * 1000)
 
-    # 5. Send sources
+    # 5. Send sources then audit log (done carries the log id for client feedback)
     yield StreamChunk(type="sources", sources=sources)
-    yield StreamChunk(type="done")
-
-    # 6. Audit log
-    await _log_query(db, user_id, question, answer, sources, latency_ms, collection)
+    log_id = await _log_query(db, user_id, question, answer, sources, latency_ms, collection)
+    yield StreamChunk(type="done", query_log_id=log_id)
 
 
 async def query(
@@ -93,7 +91,7 @@ async def _log_query(
     latency_ms: int,
     collection: str,
     tokens_used: int | None = None,
-) -> None:
+) -> str:
     log = QueryLog(
         user_id=user_id,
         question=question,
@@ -105,4 +103,6 @@ async def _log_query(
     )
     db.add(log)
     await db.commit()
-    logger.info("Query logged: latency=%dms sources=%d", latency_ms, len(sources))
+    await db.refresh(log)
+    logger.info("Query logged: latency=%dms sources=%d id=%s", latency_ms, len(sources), log.id)
+    return str(log.id)

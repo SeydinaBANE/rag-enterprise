@@ -14,6 +14,7 @@ export interface StreamChunk {
   type: "token" | "sources" | "done" | "error";
   content?: string;
   sources?: SourceDoc[];
+  query_log_id?: string;
 }
 
 export async function* streamQuery(
