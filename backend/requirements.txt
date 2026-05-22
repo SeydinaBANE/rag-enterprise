@@ -30,8 +30,7 @@ langchain-core==0.3.24
 cohere==5.13.0
 
 # Document loaders
-pdfplumber==0.11.4
-pymupdf==1.25.1
+pdfplumber==0.11.4      # PDF text + tables (pas besoin de poppler système)
 beautifulsoup4==4.12.3
 atlassian-python-api==3.41.16
 slack-sdk==3.33.4

@@ -2,8 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Seules dépendances système strictement nécessaires :
+# - gcc + libpq-dev  : compilation asyncpg / psycopg2
+# - libgomp1         : OpenMP requis par fastembed (ONNX Runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev poppler-utils tesseract-ocr tesseract-ocr-fra \
+    gcc \
+    libpq-dev \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
