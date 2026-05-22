@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import logging
+
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+
+from app.core.config import get_settings
 from app.models.db import Document
 from app.models.schemas import SourceDoc
-from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

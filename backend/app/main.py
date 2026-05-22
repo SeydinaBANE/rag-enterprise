@@ -1,10 +1,12 @@
 import logging
+
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from app.api.routes import auth, health, ingest, query
 from app.core.config import get_settings
-from app.api.routes import health, query, ingest, auth
 
 settings = get_settings()
 

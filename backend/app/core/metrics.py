@@ -1,4 +1,4 @@
-from prometheus_client import Counter, Histogram, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
 QUERY_LATENCY = Histogram(
     "rag_query_latency_seconds",

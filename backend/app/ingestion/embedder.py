@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import asyncio
 import hashlib
 import logging
 from functools import lru_cache
+
 from fastembed import TextEmbedding
+
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)

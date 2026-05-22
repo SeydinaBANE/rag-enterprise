@@ -1,15 +1,18 @@
 from __future__ import annotations
+
 import shutil
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import CurrentUser, require_admin
 from app.core.database import get_db
-from app.api.deps import require_admin, CurrentUser
-from app.models.schemas import IngestResponse
-from app.ingestion.pdf_loader import PDFLoader
-from app.ingestion.confluence import ConfluenceLoader
 from app.core.metrics import DOCUMENTS_INGESTED
+from app.ingestion.confluence import ConfluenceLoader
+from app.ingestion.pdf_loader import PDFLoader
+from app.models.schemas import IngestResponse
 
 router = APIRouter()
 UPLOADS_DIR = Path("uploads")

@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 import re
 from dataclasses import dataclass
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+
 from app.core.config import get_settings
 
 settings = get_settings()
