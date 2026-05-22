@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/.next/
+out/
+dist/
+
+# Docker volumes
+postgres_data/
+redis_data/
+
+# Uploads
+backend/uploads/
+
+# Editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
