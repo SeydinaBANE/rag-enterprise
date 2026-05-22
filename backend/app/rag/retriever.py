@@ -37,11 +37,11 @@ async def _dense_search(
     stmt = text(
         """
         SELECT id, source_type, source_id, title, content, metadata,
-               1 - (embedding <=> :vec::vector) AS score
+               1 - (embedding <=> CAST(:vec AS vector)) AS score
         FROM documents
         WHERE collection = :collection
           AND embedding IS NOT NULL
-        ORDER BY embedding <=> :vec::vector
+        ORDER BY embedding <=> CAST(:vec AS vector)
         LIMIT :k
         """
     )
