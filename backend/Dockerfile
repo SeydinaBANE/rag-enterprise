@@ -14,6 +14,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Spacy model for PII detection (en_core_web_sm ≈ 12 MB)
+# For French support: docker build --build-arg PII_LANG=fr
+ARG PII_LANG=en
+RUN python -m spacy download en_core_web_sm \
+    && if [ "$PII_LANG" = "fr" ]; then python -m spacy download fr_core_news_md; fi
+
 COPY . .
 
 EXPOSE 8000
